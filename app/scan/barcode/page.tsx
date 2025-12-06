@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/AppShell';
 import { compressImage, captureFrameFromVideo } from '@/lib/image';
 import { saveLabelImage } from '@/lib/db';
 
@@ -50,7 +51,7 @@ export default function BarcodeScanPage() {
         });
       } catch (err) {
         console.error(err);
-        setError("Impossibile accedere alla fotocamera.");
+        setError('Impossibile accedere alla fotocamera.');
       }
     };
 
@@ -89,13 +90,19 @@ export default function BarcodeScanPage() {
   };
 
   return (
-    <div className="page">
-      <h1>Scansione barcode</h1>
-      <p>Inquadra il codice a barre GLS / Spedizione Napoli.</p>
-      {error && <div className="error-banner">{error}</div>}
-      <div className="camera-box">
-        <video ref={videoRef} playsInline muted style={{ width: '100%', borderRadius: 12, background: '#111' }} />
+    <AppShell
+      title="Scansione barcode"
+      subtitle="Inquadra il codice a barre GLS / Spedizione Napoli all'interno dell'area."
+    >
+      <div className="app-section">
+        {error && <div className="error-banner">{error}</div>}
+        <div className="camera-wrapper" style={{ maxWidth: 640, margin: '0 auto' }}>
+          <video ref={videoRef} playsInline muted />
+        </div>
+        <p className="app-subtitle" style={{ marginTop: '0.75rem' }}>
+          La lettura avviene automaticamente quando il codice è nitido.
+        </p>
       </div>
-    </div>
+    </AppShell>
   );
 }

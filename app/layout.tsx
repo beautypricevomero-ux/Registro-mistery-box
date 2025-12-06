@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Registro Spedizioni Mystery Box',
   description: 'App locale per registrare spedizioni con foto e barcode',
   manifest: '/manifest.json',
-  themeColor: '#0f172a'
+  themeColor: '#ffe4f1'
 };
 
 export default function RootLayout({

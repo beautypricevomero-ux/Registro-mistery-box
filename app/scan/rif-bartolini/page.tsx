@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/AppShell';
 import { compressImage } from '@/lib/image';
 import { saveLabelImage } from '@/lib/db';
 import { recognizeDigitsOnly } from '@/lib/ocr';
@@ -53,7 +54,6 @@ export default function RifBartoliniPage() {
       if (!ctx) throw new Error('Canvas non supportato');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // ROI allineato al riquadro visibile: 20% ai lati, 10% sopra/sotto
       const roiX = canvas.width * 0.2;
       const roiWidth = canvas.width * 0.6;
       const roiY = canvas.height * 0.1;
@@ -97,39 +97,34 @@ export default function RifBartoliniPage() {
   };
 
   return (
-    <div className="page">
-      <h1>Scatta RIF Bartolini</h1>
-      <p>Inquadra il codice RIF al centro del riquadro, poi premi "Scatta RIF".</p>
-      {error && <div className="error-banner">{error}</div>}
-      <div
-        className="camera-wrapper"
-        style={{ position: 'relative', width: '100%', maxWidth: '600px', margin: '0 auto' }}
-      >
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          style={{ width: '100%', borderRadius: 12, background: '#111' }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            border: '3px solid #00BFFF',
-            borderRadius: '8px',
-            left: '20%',
-            right: '20%',
-            top: '10%',
-            bottom: '10%',
-            pointerEvents: 'none',
-            boxShadow: '0 0 15px rgba(0,0,0,0.6) inset'
-          }}
-        />
+    <AppShell
+      title="Scatta RIF Bartolini"
+      subtitle="Inquadra il codice RIF al centro del riquadro, poi premi 'Scatta RIF'."
+    >
+      <div className="app-section" style={{ textAlign: 'center' }}>
+        {error && <div className="error-banner">{error}</div>}
+        <div className="camera-wrapper" style={{ position: 'relative', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
+          <video ref={videoRef} playsInline muted />
+          <div
+            style={{
+              position: 'absolute',
+              border: '3px solid #00BFFF',
+              borderRadius: '12px',
+              left: '20%',
+              right: '20%',
+              top: '10%',
+              bottom: '10%',
+              pointerEvents: 'none',
+              boxShadow: '0 0 15px rgba(0,0,0,0.6) inset'
+            }}
+          />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <button onClick={handleCaptureRif} disabled={processing} className="app-primary-button">
+            {processing ? 'Elaborazione...' : 'Scatta RIF'}
+          </button>
+        </div>
       </div>
-      <div style={{ marginTop: 12 }}>
-        <button onClick={handleCaptureRif} disabled={processing} className="primary">
-          {processing ? 'Elaborazione...' : 'Scatta RIF'}
-        </button>
-      </div>
-    </div>
+    </AppShell>
   );
 }

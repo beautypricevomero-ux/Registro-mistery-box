@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/AppShell';
 import { compressImage, captureFrameFromVideo } from '@/lib/image';
 import { createShipment, saveBoxPhotos } from '@/lib/db';
 
@@ -109,34 +110,31 @@ export default function NuovaSpedizionePage() {
 
   if (!codeData) {
     return (
-      <div className="page">
-        <h1>Nuova spedizione</h1>
-        <p>Nessun codice letto. Torna indietro e leggi prima il codice dalla LDV.</p>
-        <button onClick={() => router.push('/')}>Home</button>
-      </div>
+      <AppShell title="Nuova spedizione" subtitle="Nessun codice letto. Torna indietro e riprova.">
+        <div className="app-section">
+          <button className="app-secondary-button" onClick={() => router.push('/')}>Home</button>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="page">
-      <h1>Nuova spedizione</h1>
-      <div className="card">
-        <p>
-          Corriere: <strong>{codeData.carrier}</strong>
-        </p>
-        <p>
-          ID ordine: <strong>{codeData.orderId}</strong>
-        </p>
-      </div>
+    <AppShell title="Nuova spedizione" subtitle="Acquisisci le foto del pacco e salva la spedizione.">
+      <div className="app-section">
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          <span className="chip">Corriere: {codeData.carrier}</span>
+          <span className="chip">ID ordine: {codeData.orderId}</span>
+        </div>
 
-      <section style={{ marginTop: 16 }}>
-        <h2>Foto pacco</h2>
+        <div className="app-section-title">Foto pacco</div>
         {error && <div className="error-banner">{error}</div>}
-        <div className="camera-box">
-          <video ref={videoRef} playsInline muted style={{ width: '100%', borderRadius: 12, background: '#111' }} />
+        <div className="camera-box" style={{ marginTop: '0.5rem' }}>
+          <video ref={videoRef} playsInline muted />
         </div>
         <div style={{ marginTop: 12 }}>
-          <button onClick={handleCapture}>Scatta foto</button>
+          <button className="app-primary-button" onClick={handleCapture}>
+            Scatta foto
+          </button>
         </div>
         <div className="thumb-grid" style={{ marginTop: 12 }}>
           {boxPhotos.map((p) => (
@@ -148,14 +146,14 @@ export default function NuovaSpedizionePage() {
             </div>
           ))}
         </div>
-      </section>
+      </div>
 
-      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-        <button className="primary" onClick={handleSave} disabled={saving || boxPhotos.length === 0}>
+      <div className="app-section" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button className="app-primary-button" onClick={handleSave} disabled={saving || boxPhotos.length === 0}>
           {saving ? 'Salvataggio...' : 'Salva spedizione'}
         </button>
-        <button className="secondary" onClick={() => router.push('/')}>Annulla</button>
+        <button className="app-secondary-button" onClick={() => router.push('/')}>Annulla</button>
       </div>
-    </div>
+    </AppShell>
   );
 }

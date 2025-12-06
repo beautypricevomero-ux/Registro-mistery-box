@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/AppShell';
 
 const CARRIER_KEY = 'currentCarrier';
 
@@ -21,20 +22,21 @@ export default function TipoEtichettaPage() {
   };
 
   return (
-    <div className="page">
-      <h1>Scegli il tipo di etichetta</h1>
-      <p style={{ marginBottom: 16 }}>Seleziona il corriere per avviare la scansione.</p>
-      <div className="nav-buttons">
-        <button onClick={() => handleSelect('GLS')} style={{ width: '100%' }}>
-          GLS
-        </button>
-        <button onClick={() => handleSelect('SPEDIZIONE_NAPOLI')} style={{ width: '100%' }}>
-          Spedizione Napoli
-        </button>
-        <button onClick={() => handleSelect('BARTOLINI')} style={{ width: '100%' }}>
-          Bartolini
-        </button>
+    <AppShell title="Nuova spedizione" subtitle="Seleziona il corriere per questa etichetta.">
+      <div className="app-section">
+        <div className="app-section-title">Tipo di etichetta</div>
+        <div className="app-button-row" style={{ marginTop: '0.75rem' }}>
+          <button className="app-primary-button" onClick={() => handleSelect('GLS')}>
+            GLS
+          </button>
+          <button className="app-secondary-button" onClick={() => handleSelect('SPEDIZIONE_NAPOLI')}>
+            Spedizione Napoli
+          </button>
+          <button className="app-secondary-button" onClick={() => handleSelect('BARTOLINI')}>
+            Bartolini (RIF)
+          </button>
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

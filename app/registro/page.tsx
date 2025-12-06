@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { AppShell } from '@/components/AppShell';
 import { getPhotoById, getPhotosByShipmentId, getShipmentsByDate, Photo, Shipment } from '@/lib/db';
 
 interface RegistryItem {
@@ -73,9 +74,7 @@ export default function RegistroPage() {
     setItems(list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)));
   };
 
-  const filteredItems = items.filter((item) =>
-    item.orderId.toLowerCase().includes(searchTerm.trim().toLowerCase())
-  );
+  const filteredItems = items.filter((item) => item.orderId.toLowerCase().includes(searchTerm.trim().toLowerCase()));
 
   const handleExport = async () => {
     setExporting(true);
@@ -161,8 +160,6 @@ export default function RegistroPage() {
       const row = worksheet.getRow(rowIndex);
       row.getCell('orderId').value = s.orderId;
       row.getCell('createdAt').value = new Date(s.createdAt).toISOString();
-
-      // Ensure enough height for thumbnails
       row.height = 80;
 
       const photos = s.photos || [];
@@ -178,8 +175,7 @@ export default function RegistroPage() {
             extension: 'jpeg'
           });
 
-          // Place each photo in successive columns starting from C
-          const colIndex = 3 + colOffset; // zero-based internally
+          const colIndex = 3 + colOffset;
           worksheet.addImage(
             imageId,
             {
@@ -214,47 +210,42 @@ export default function RegistroPage() {
   };
 
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      <div className="topbar">
-        <h2 className="section-title">Registro spedizioni</h2>
-        <Link href="/">
-          <small>Home</small>
-        </Link>
-      </div>
-
-      <div className="card">
-        <div className="grid" style={{ gap: 12 }}>
-          <label>
-            Data
+    <AppShell
+      title="Registro spedizioni"
+      subtitle="Consulta ed esporta le spedizioni del giorno."
+      rightSlot={<Link href="/">Home</Link>}
+    >
+      <div className="app-section" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="app-section-title">Filtri</div>
+        <div className="button-row-spread">
+          <div style={{ minWidth: 220, flex: 1 }}>
+            <label>Data</label>
+            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          </div>
+          <div style={{ minWidth: 240, flex: 2 }}>
+            <label>Cerca per ID ordine</label>
             <input
-              type="date"
-              className="input"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Inserisci ID ordine"
             />
-          </label>
-          <button onClick={loadData}>Aggiorna elenco</button>
+          </div>
+          <div style={{ alignSelf: 'flex-end' }}>
+            <button className="app-secondary-button" onClick={loadData}>
+              Aggiorna elenco
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ marginRight: '0.5rem' }}>Cerca per ID ordine:</label>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Inserisci ID ordine"
-          style={{ padding: '0.25rem 0.5rem', minWidth: '240px' }}
-        />
-      </div>
-
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="app-section" style={{ overflowX: 'auto' }}>
+        <table className="app-table">
           <thead>
             <tr>
-              <th style={{ borderBottom: '1px solid #444', textAlign: 'left', padding: '0.5rem' }}>ID ordine</th>
-              <th style={{ borderBottom: '1px solid #444', textAlign: 'left', padding: '0.5rem' }}>Data e ora</th>
-              <th style={{ borderBottom: '1px solid #444', textAlign: 'left', padding: '0.5rem' }}>Foto pacco</th>
+              <th>ID ordine</th>
+              <th>Data e ora</th>
+              <th>Foto pacco</th>
             </tr>
           </thead>
           <tbody>
@@ -267,15 +258,13 @@ export default function RegistroPage() {
             ) : (
               filteredItems.map((item) => (
                 <tr key={item.id}>
-                  <td style={{ borderBottom: '1px solid #333', padding: '0.5rem' }}>{item.orderId}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '0.5rem' }}>
-                    {new Date(item.createdAt).toLocaleString()}
-                  </td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '0.5rem' }}>
+                  <td>{item.orderId}</td>
+                  <td>{new Date(item.createdAt).toLocaleString()}</td>
+                  <td>
                     {item.photos.length === 0 ? (
                       <span>Nessuna foto</span>
                     ) : (
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {item.photos.map((photo) => (
                           <a
                             key={photo.id}
@@ -287,7 +276,7 @@ export default function RegistroPage() {
                             <img
                               src={photo.url}
                               alt="Foto pacco"
-                              style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
+                              style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)' }}
                             />
                           </a>
                         ))}
@@ -301,13 +290,13 @@ export default function RegistroPage() {
         </table>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <button onClick={handleExport} disabled={exporting}>
+      <div className="app-section" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <button className="app-secondary-button" onClick={handleExport} disabled={exporting}>
           {exporting ? 'Creazione file...' : 'Esporta registro del giorno'}
         </button>
-        <button onClick={handleExportCsv}>Esporta CSV per Excel</button>
-        <button onClick={handleExportExcelWithPhotos}>Esporta Excel con foto</button>
+        <button className="app-secondary-button" onClick={handleExportCsv}>Esporta CSV per Excel</button>
+        <button className="app-primary-button" onClick={handleExportExcelWithPhotos}>Esporta Excel con foto</button>
       </div>
-    </div>
+    </AppShell>
   );
 }

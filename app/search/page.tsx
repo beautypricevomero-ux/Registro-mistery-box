@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AppShell } from '@/components/AppShell';
 import { getAllShipments, getPhotoById } from '@/lib/db';
 
 interface ResultItem {
@@ -44,52 +45,47 @@ export default function SearchPage() {
           photos.push({ id, url });
         }
       }
-        enriched.push({
-          shipmentId: shipment.id,
-          createdAt: shipment.createdAt,
-          orderId: shipment.orderId,
-          carrier: shipment.carrier,
-          photos
-        });
+      enriched.push({
+        shipmentId: shipment.id,
+        createdAt: shipment.createdAt,
+        orderId: shipment.orderId,
+        carrier: shipment.carrier,
+        photos
+      });
     }
     setResults(enriched);
     setMessage(null);
   };
 
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      <div className="topbar">
-        <h2 className="section-title">Cerca spedizione</h2>
-        <Link href="/">
-          <small>Home</small>
-        </Link>
-      </div>
-
-      <div className="card">
-        <div className="grid" style={{ gap: 12 }}>
-          <label>
-            Cerca per ID ordine
+    <AppShell title="Cerca spedizione" subtitle="Trova una spedizione per ID ordine." rightSlot={<Link href="/">Home</Link>}>
+      <div className="app-section">
+        <div className="app-section-title">Ricerca</div>
+        <div className="button-row-spread" style={{ alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <label>Cerca per ID ordine</label>
             <input
-              className="input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Inserisci ID ordine"
             />
-          </label>
-          <button onClick={handleSearch}>Cerca</button>
+          </div>
+          <button className="app-primary-button" onClick={handleSearch}>
+            Cerca
+          </button>
         </div>
+        {message && <p style={{ marginTop: 8 }}>{message}</p>}
       </div>
 
-      {message && <p>{message}</p>}
-
-      <div className="grid" style={{ gap: 16 }}>
+      <div className="app-section" style={{ display: 'grid', gap: 16 }}>
         {results.map((res) => (
-          <div className="card" key={res.shipmentId}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div key={res.shipmentId} className="app-section" style={{ boxShadow: '0 6px 16px rgba(148,163,184,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <div>
                 <div style={{ fontWeight: 700 }}>ID ordine: {res.orderId}</div>
-                <div style={{ color: '#cbd5e1' }}>Corriere: {res.carrier}</div>
-                <div style={{ color: '#cbd5e1' }}>
+                <div className="app-subtitle">Corriere: {res.carrier}</div>
+                <div className="app-subtitle">
                   Data: {res.createdAt.slice(0, 10)} – Ora:{' '}
                   {new Date(res.createdAt).toLocaleTimeString('it-IT', {
                     hour: '2-digit',
@@ -124,12 +120,12 @@ export default function SearchPage() {
         >
           <div style={{ maxWidth: '90%', maxHeight: '90%' }}>
             <img src={modalUrl} alt="Foto grande" style={{ maxWidth: '100%', maxHeight: '100%' }} />
-            <button style={{ marginTop: 12 }} onClick={() => setModalUrl(null)}>
+            <button style={{ marginTop: 12 }} className="app-secondary-button" onClick={() => setModalUrl(null)}>
               Chiudi
             </button>
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
