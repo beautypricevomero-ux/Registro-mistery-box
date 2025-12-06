@@ -1,5 +1,7 @@
 'use client';
 
+// @ts-ignore
+import { Buffer } from 'buffer';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { blobToBase64 } from '@/lib/image';
@@ -11,7 +13,7 @@ interface RegistryItem {
   orderId: string;
   carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI';
   photoCount: number;
-  photos: { id: string; url: string; mimeType: string }[];
+  photos: { id: string; url: string; mimeType: string; blob: Blob }[];
   expanded: boolean;
   data: Shipment;
 }
@@ -23,6 +25,9 @@ export default function RegistroPage() {
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).Buffer = (window as any).Buffer || Buffer;
+    }
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
@@ -41,7 +46,8 @@ export default function RegistroPage() {
       const photos = rawPhotos.map((ph) => ({
         id: ph.id,
         url: URL.createObjectURL(ph.blob),
-        mimeType: ph.mimeType
+        mimeType: ph.mimeType,
+        blob: ph.blob
       }));
       list.push({
         id: shipment.id,
@@ -118,6 +124,72 @@ export default function RegistroPage() {
     const dateStr = selectedDate || new Date().toISOString().slice(0, 10);
     a.href = url;
     a.download = `registro-spedizioni-${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const blobToArrayBuffer = async (blob: Blob) => {
+    return blob.arrayBuffer();
+  };
+
+  const handleExportExcelWithPhotos = async () => {
+    if (filteredItems.length === 0) {
+      alert('Non ci sono spedizioni da esportare.');
+      return;
+    }
+
+    const ExcelJS = (await import('exceljs')).default;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Registro');
+
+    worksheet.columns = [
+      { header: 'ID ordine', key: 'orderId', width: 30 },
+      { header: 'Data e ora', key: 'createdAt', width: 25 },
+      { header: 'Foto pacco', key: 'photos', width: 40 }
+    ];
+
+    let rowIndex = 2;
+
+    for (const s of filteredItems) {
+      const row = worksheet.getRow(rowIndex);
+      row.getCell('orderId').value = s.orderId;
+      row.getCell('createdAt').value = new Date(s.createdAt).toISOString();
+
+      row.height = 80;
+
+      const photos = s.photos || [];
+      let imageRowTop = rowIndex;
+      for (const photo of photos) {
+        const arrayBuffer = await blobToArrayBuffer(photo.blob);
+        const imageId = workbook.addImage({
+          buffer: Buffer.from(arrayBuffer),
+          extension: 'jpeg'
+        });
+
+        worksheet.addImage(imageId, {
+          tl: { col: 2, row: imageRowTop - 1 + 0.1 },
+          br: { col: 3, row: imageRowTop - 1 + 0.9 },
+          editAs: 'oneCell'
+        });
+
+        imageRowTop += 0.9;
+      }
+
+      row.commit();
+      rowIndex++;
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    const dateStr = selectedDate || new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `registro-spedizioni-${dateStr}-con-foto.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -215,6 +287,7 @@ export default function RegistroPage() {
           {exporting ? 'Creazione file...' : 'Esporta registro del giorno'}
         </button>
         <button onClick={handleExportCsv}>Esporta CSV per Excel</button>
+        <button onClick={handleExportExcelWithPhotos}>Esporta Excel con foto</button>
       </div>
     </div>
   );
