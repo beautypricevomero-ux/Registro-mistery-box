@@ -1,18 +1,15 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 
-export function AppShell({
-  title,
-  subtitle,
-  rightSlot,
-  children
-}: {
+type AppShellProps = {
   title: string;
   subtitle?: string;
   rightSlot?: React.ReactNode;
   children: React.ReactNode;
-}) {
+};
+
+export function AppShell({ title, subtitle, rightSlot, children }: AppShellProps) {
   return (
     <div className="app-shell">
       <div className="app-card">
