@@ -7,7 +7,8 @@ import { getAllShipments, getPhotoById } from '@/lib/db';
 interface ResultItem {
   shipmentId: string;
   createdAt: string;
-  code: string;
+  orderId: string;
+  carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI';
   photos: { id: string; url: string }[];
 }
 
@@ -27,7 +28,7 @@ export default function SearchPage() {
     const q = query.trim().toLowerCase();
     if (!q) return;
     const shipmentRows = await getAllShipments();
-    const filtered = shipmentRows.filter((shipment) => shipment.code.toLowerCase().includes(q));
+    const filtered = shipmentRows.filter((shipment) => shipment.orderId.toLowerCase().includes(q));
     if (filtered.length === 0) {
       setResults([]);
       setMessage('Nessuna spedizione trovata.');
@@ -43,12 +44,13 @@ export default function SearchPage() {
           photos.push({ id, url });
         }
       }
-      enriched.push({
-        shipmentId: shipment.id,
-        createdAt: shipment.createdAt,
-        code: shipment.code,
-        photos
-      });
+        enriched.push({
+          shipmentId: shipment.id,
+          createdAt: shipment.createdAt,
+          orderId: shipment.orderId,
+          carrier: shipment.carrier,
+          photos
+        });
     }
     setResults(enriched);
     setMessage(null);
@@ -66,7 +68,7 @@ export default function SearchPage() {
       <div className="card">
         <div className="grid" style={{ gap: 12 }}>
           <label>
-            Cerca per codice spedizione
+            Cerca per ID ordine
             <input
               className="input"
               value={query}
@@ -85,7 +87,8 @@ export default function SearchPage() {
           <div className="card" key={res.shipmentId}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>Codice: {res.code}</div>
+                <div style={{ fontWeight: 700 }}>ID ordine: {res.orderId}</div>
+                <div style={{ color: '#cbd5e1' }}>Corriere: {res.carrier}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Data: {res.createdAt.slice(0, 10)} – Ora:{' '}
                   {new Date(res.createdAt).toLocaleTimeString('it-IT', {

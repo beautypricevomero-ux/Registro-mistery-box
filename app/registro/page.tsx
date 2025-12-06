@@ -8,7 +8,8 @@ import { getPhotoById, getShipmentsByDate, Shipment } from '@/lib/db';
 interface RegistryItem {
   id: string;
   createdAt: string;
-  code: string;
+  orderId: string;
+  carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI';
   photoCount: number;
   photos: { id: string; url: string; mimeType: string }[];
   expanded: boolean;
@@ -36,7 +37,7 @@ export default function RegistroPage() {
     const shipments = await getShipmentsByDate(selectedDate);
     const normalizedFilter = filter.trim().toLowerCase();
     const filtered = normalizedFilter
-      ? shipments.filter((shipment) => shipment.code.toLowerCase().includes(normalizedFilter))
+      ? shipments.filter((shipment) => shipment.orderId.toLowerCase().includes(normalizedFilter))
       : shipments;
     const list: RegistryItem[] = [];
     for (const shipment of filtered) {
@@ -51,7 +52,8 @@ export default function RegistroPage() {
       list.push({
         id: shipment.id,
         createdAt: shipment.createdAt,
-        code: shipment.code,
+        orderId: shipment.orderId,
+        carrier: shipment.carrier,
         photoCount: photos.length,
         photos,
         expanded: false,
@@ -80,10 +82,9 @@ export default function RegistroPage() {
         }
         const labelImage = shipment.labelImageId ? await getPhotoById(shipment.labelImageId) : undefined;
         exportData.shipments.push({
-          code: shipment.code,
+          orderId: shipment.orderId,
+          carrier: shipment.carrier,
           createdAt: shipment.createdAt,
-          layoutType: shipment.layoutType,
-          ocrText: shipment.ocrText,
           boxPhotos,
           labelImage: labelImage
             ? { mimeType: labelImage.mimeType, base64: await blobToBase64(labelImage.blob) }
@@ -124,7 +125,7 @@ export default function RegistroPage() {
             />
           </label>
           <label>
-            Filtra per codice
+            Filtra per ID ordine
             <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} />
           </label>
           <button onClick={loadData}>Aggiorna elenco</button>
@@ -136,7 +137,8 @@ export default function RegistroPage() {
           <div className="card" key={item.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>Codice: {item.code}</div>
+                <div style={{ fontWeight: 700 }}>ID ordine: {item.orderId}</div>
+                <div style={{ color: '#cbd5e1' }}>Corriere: {item.carrier}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Ora: {new Date(item.createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                 </div>

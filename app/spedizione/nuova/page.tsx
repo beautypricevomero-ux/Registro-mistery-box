@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { compressImage, captureFrameFromVideo } from '@/lib/image';
 import { createShipment, saveBoxPhotos } from '@/lib/db';
 
-type CodeData = { code: string; labelImageId?: string };
+type CodeData = { orderId: string; carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI'; labelImageId?: string };
 
 export default function NuovaSpedizionePage() {
   const router = useRouter();
@@ -22,8 +22,8 @@ export default function NuovaSpedizionePage() {
     if (!raw) return;
     try {
       const data = JSON.parse(raw) as CodeData;
-      if (data && data.code) {
-        setCodeData({ code: data.code, labelImageId: data.labelImageId });
+      if (data && data.orderId && data.carrier) {
+        setCodeData({ orderId: data.orderId, carrier: data.carrier, labelImageId: data.labelImageId });
       }
     } catch (err) {
       console.error('Invalid lastCodeData', err);
@@ -78,7 +78,7 @@ export default function NuovaSpedizionePage() {
 
   const handleSave = async () => {
     if (!codeData) {
-      setError('Nessun codice disponibile. Torna indietro e leggi la LDV.');
+      setError('Nessun codice disponibile. Torna indietro e avvia una nuova scansione.');
       return;
     }
     if (boxPhotos.length === 0) {
@@ -89,7 +89,12 @@ export default function NuovaSpedizionePage() {
     setError(null);
     try {
       const boxPhotoIds = await saveBoxPhotos(boxPhotos.map((p) => p.blob));
-      await createShipment({ code: codeData.code, labelImageId: codeData.labelImageId, boxPhotoIds });
+      await createShipment({
+        orderId: codeData.orderId,
+        carrier: codeData.carrier,
+        labelImageId: codeData.labelImageId,
+        boxPhotoIds
+      });
       boxPhotos.forEach((p) => URL.revokeObjectURL(p.url));
       setBoxPhotos([]);
       router.push('/');
@@ -117,7 +122,10 @@ export default function NuovaSpedizionePage() {
       <h1>Nuova spedizione</h1>
       <div className="card">
         <p>
-          Codice spedizione: <strong>{codeData.code}</strong>
+          Corriere: <strong>{codeData.carrier}</strong>
+        </p>
+        <p>
+          ID ordine: <strong>{codeData.orderId}</strong>
         </p>
       </div>
 

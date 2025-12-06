@@ -1,15 +1,12 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { LabelLayoutType } from './layouts';
-
 export type Shipment = {
   id: string;
-  code: string;
+  orderId: string;
+  carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI';
   createdAt: string;
   date: string;
-  boxPhotoIds: string[];
   labelImageId?: string;
-  ocrText?: string;
-  layoutType?: LabelLayoutType;
+  boxPhotoIds: string[];
 };
 
 export type Photo = {
@@ -26,7 +23,7 @@ interface RegistryDB extends DBSchema {
     value: Shipment;
     indexes: {
       by_date: string;
-      by_code: string;
+      by_orderId: string;
     };
   };
   photos: {
@@ -39,7 +36,7 @@ interface RegistryDB extends DBSchema {
 }
 
 const DB_NAME = 'registroSpedizioniDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let dbPromise: Promise<IDBPDatabase<RegistryDB>> | null = null;
 
 const generateId = () => {
@@ -61,7 +58,7 @@ export function initDB() {
         }
         const shipments = db.createObjectStore('shipments', { keyPath: 'id' });
         shipments.createIndex('by_date', 'date');
-        shipments.createIndex('by_code', 'code');
+        shipments.createIndex('by_orderId', 'orderId');
 
         const photos = db.createObjectStore('photos', { keyPath: 'id' });
         photos.createIndex('by_kind', 'kind');
@@ -108,15 +105,14 @@ export async function saveBoxPhotos(blobs: Blob[]): Promise<string[]> {
 }
 
 export type CreateShipmentInput = {
-  code: string;
+  orderId: string;
+  carrier: 'GLS' | 'SPEDIZIONE_NAPOLI' | 'BARTOLINI';
   boxPhotoIds: string[];
   labelImageId?: string;
-  ocrText?: string;
-  layoutType?: LabelLayoutType;
 };
 
 export async function createShipment(input: CreateShipmentInput): Promise<Shipment> {
-  if (!input.code) {
+  if (!input.orderId) {
     throw new Error('Codice spedizione mancante');
   }
   if (!input.boxPhotoIds || input.boxPhotoIds.length === 0) {
@@ -127,13 +123,12 @@ export async function createShipment(input: CreateShipmentInput): Promise<Shipme
   const date = createdAt.slice(0, 10);
   const shipment: Shipment = {
     id: generateId(),
-    code: input.code,
+    orderId: input.orderId,
+    carrier: input.carrier,
     createdAt,
     date,
     boxPhotoIds: input.boxPhotoIds,
-    labelImageId: input.labelImageId,
-    ocrText: input.ocrText,
-    layoutType: input.layoutType
+    labelImageId: input.labelImageId
   };
   await db.add('shipments', shipment);
   return shipment;
@@ -142,6 +137,11 @@ export async function createShipment(input: CreateShipmentInput): Promise<Shipme
 export async function getShipmentsByDate(date: string): Promise<Shipment[]> {
   const db = await initDB();
   return db.getAllFromIndex('shipments', 'by_date', date);
+}
+
+export async function getShipmentsByOrderId(orderId: string): Promise<Shipment[]> {
+  const db = await initDB();
+  return db.getAllFromIndex('shipments', 'by_orderId', orderId);
 }
 
 export async function getAllShipments(): Promise<Shipment[]> {
