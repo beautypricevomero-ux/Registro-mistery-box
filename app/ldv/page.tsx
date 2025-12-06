@@ -8,20 +8,13 @@ import { saveLabelImage } from '@/lib/db';
 import { recognizeLabelText } from '@/lib/ocr';
 import { detectTrackingCode } from '@/lib/tracking';
 
-const LAST_LDV_KEY = 'lastLdvData';
+const LAST_CODE_KEY = 'lastCodeData';
 
-type LdvData = {
-  fullName: string;
-  address: string;
-  cap?: string;
-  city?: string;
-  province?: string;
-  phone?: string;
-  notes?: string;
-  ocrText: string;
+type LastCodeData = {
+  code: string;
+  labelImageId?: string;
+  ocrText?: string;
   layoutType?: string;
-  trackingFromLabel?: string;
-  labelImageId: string;
   createdAt: string;
 };
 
@@ -74,24 +67,17 @@ export default function LdvPage() {
       const ocrText = await recognizeLabelText(compressed);
       const parsed = parseLabelFields(ocrText);
       const labelImageId = await saveLabelImage(compressed);
-      const ldvData: LdvData = {
-        fullName: parsed.name || '',
-        address: parsed.address || '',
-        cap: parsed.cap || '',
-        city: parsed.city || '',
-        province: parsed.province || '',
-        phone: parsed.phone || '',
-        notes: '',
+      const codeData: LastCodeData = {
+        code: tracking,
+        labelImageId,
         ocrText,
         layoutType: parsed.layoutType || 'UNKNOWN',
-        trackingFromLabel: tracking,
-        labelImageId,
         createdAt: new Date().toISOString()
       };
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(LAST_LDV_KEY, JSON.stringify(ldvData));
+        window.localStorage.setItem(LAST_CODE_KEY, JSON.stringify(codeData));
       }
-      router.push('/cliente/nuovo');
+      router.push('/spedizione/nuova');
     } catch (err) {
       console.error(err);
       setError('Errore durante la lettura dell’etichetta. Riprova.');

@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { buildSearchBlobFromCustomer, getAllShipmentsWithCustomers, getPhotoById } from '@/lib/db';
+import { getAllShipments, getPhotoById } from '@/lib/db';
 
 interface ResultItem {
   shipmentId: string;
   createdAt: string;
-  tracking?: string;
-  customerName: string;
-  customerAddress: string;
-  searchBlob: string;
+  code: string;
   photos: { id: string; url: string }[];
 }
 
@@ -29,18 +26,15 @@ export default function SearchPage() {
   const handleSearch = async () => {
     const q = query.trim().toLowerCase();
     if (!q) return;
-    const shipmentRows = await getAllShipmentsWithCustomers();
-    const filtered = shipmentRows.filter(({ shipment, customer }) => {
-      const blob = buildSearchBlobFromCustomer(customer, shipment.tracking);
-      return blob.includes(q);
-    });
+    const shipmentRows = await getAllShipments();
+    const filtered = shipmentRows.filter((shipment) => shipment.code.toLowerCase().includes(q));
     if (filtered.length === 0) {
       setResults([]);
       setMessage('Nessuna spedizione trovata.');
       return;
     }
     const enriched: ResultItem[] = [];
-    for (const { shipment, customer } of filtered) {
+    for (const shipment of filtered) {
       const photos: { id: string; url: string }[] = [];
       for (const id of shipment.boxPhotoIds) {
         const ph = await getPhotoById(id);
@@ -52,10 +46,7 @@ export default function SearchPage() {
       enriched.push({
         shipmentId: shipment.id,
         createdAt: shipment.createdAt,
-        tracking: shipment.tracking,
-        customerName: customer.fullName,
-        customerAddress: customer.address,
-        searchBlob: buildSearchBlobFromCustomer(customer, shipment.tracking),
+        code: shipment.code,
         photos
       });
     }
@@ -75,7 +66,7 @@ export default function SearchPage() {
       <div className="card">
         <div className="grid" style={{ gap: 12 }}>
           <label>
-            Cerca per nome, indirizzo, CAP, telefono, tracking…
+            Cerca per codice spedizione
             <input
               className="input"
               value={query}
@@ -94,8 +85,7 @@ export default function SearchPage() {
           <div className="card" key={res.shipmentId}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>Cliente: {res.customerName}</div>
-                <div>{res.customerAddress}</div>
+                <div style={{ fontWeight: 700 }}>Codice: {res.code}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Data: {res.createdAt.slice(0, 10)} – Ora:{' '}
                   {new Date(res.createdAt).toLocaleTimeString('it-IT', {
@@ -103,7 +93,6 @@ export default function SearchPage() {
                     minute: '2-digit'
                   })}
                 </div>
-                {res.tracking && <div>Tracking: {res.tracking}</div>}
               </div>
             </div>
             <div className="thumb-grid" style={{ marginTop: 12 }}>

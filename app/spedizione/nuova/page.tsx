@@ -3,40 +3,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { compressImage, captureFrameFromVideo } from '@/lib/image';
-import {
-  createShipment,
-  getCustomer,
-  saveBoxPhotos
-} from '@/lib/db';
+import { createShipment, saveBoxPhotos } from '@/lib/db';
+
+type CodeData = { code: string; labelImageId?: string };
 
 export default function NuovaSpedizionePage() {
-  const [customerId, setCustomerId] = useState<string | null>(null);
-  const [labelImageId, setLabelImageId] = useState<string | null>(null);
-  const [isParamsLoaded, setIsParamsLoaded] = useState(false);
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [customer, setCustomer] = useState<Awaited<ReturnType<typeof getCustomer>> | null>(null);
+  const [codeData, setCodeData] = useState<CodeData | null>(null);
   const [boxPhotos, setBoxPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const search = new URLSearchParams(window.location.search);
-    const cId = search.get('customerId');
-    const lId = search.get('labelImageId');
-
-    setCustomerId(cId);
-    setLabelImageId(lId);
-    setIsParamsLoaded(true);
+    const raw = window.localStorage.getItem('lastCodeData');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw) as CodeData;
+      if (data && data.code) {
+        setCodeData({ code: data.code, labelImageId: data.labelImageId });
+      }
+    } catch (err) {
+      console.error('Invalid lastCodeData', err);
+    }
   }, []);
-
-  useEffect(() => {
-    if (!customerId) return;
-    getCustomer(customerId).then((c) => setCustomer(c || null));
-  }, [customerId]);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -85,26 +77,19 @@ export default function NuovaSpedizionePage() {
   };
 
   const handleSave = async () => {
-    if (!customerId || !labelImageId || !customer) {
-      setError('Dati mancanti per salvare la spedizione.');
+    if (!codeData) {
+      setError('Nessun codice disponibile. Torna indietro e leggi la LDV.');
       return;
     }
     if (boxPhotos.length === 0) {
-      setError('Devi scattare almeno una foto del pacco per registrare la spedizione.');
+      setError('Devi scattare almeno una foto del pacco.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
       const boxPhotoIds = await saveBoxPhotos(boxPhotos.map((p) => p.blob));
-      await createShipment({
-        customerId,
-        labelImageId,
-        boxPhotoIds,
-        ocrText: customer.ocrText,
-        tracking: customer.trackingFromLabel,
-        layoutType: customer.layoutType
-      });
+      await createShipment({ code: codeData.code, labelImageId: codeData.labelImageId, boxPhotoIds });
       boxPhotos.forEach((p) => URL.revokeObjectURL(p.url));
       setBoxPhotos([]);
       router.push('/');
@@ -117,15 +102,11 @@ export default function NuovaSpedizionePage() {
     }
   };
 
-  if (!isParamsLoaded) {
-    return <div className="page">Caricamento parametri spedizione...</div>;
-  }
-
-  if (!customerId || !labelImageId) {
+  if (!codeData) {
     return (
       <div className="page">
         <h1>Nuova spedizione</h1>
-        <p>Dati mancanti. Torna alla home.</p>
+        <p>Nessun codice letto. Torna indietro e leggi prima il codice dalla LDV.</p>
         <button onClick={() => router.push('/')}>Home</button>
       </div>
     );
@@ -134,18 +115,11 @@ export default function NuovaSpedizionePage() {
   return (
     <div className="page">
       <h1>Nuova spedizione</h1>
-      {customer ? (
-        <div className="card">
-          <div><strong>Cliente:</strong> {customer.fullName}</div>
-          <div>{customer.address}</div>
-          <div>
-            {customer.cap} {customer.city} {customer.province ? `(${customer.province})` : ''}
-          </div>
-          {customer.phone && <div>Telefono: {customer.phone}</div>}
-        </div>
-      ) : (
-        <p>Caricamento cliente...</p>
-      )}
+      <div className="card">
+        <p>
+          Codice spedizione: <strong>{codeData.code}</strong>
+        </p>
+      </div>
 
       <section style={{ marginTop: 16 }}>
         <h2>Foto pacco</h2>
@@ -160,7 +134,9 @@ export default function NuovaSpedizionePage() {
           {boxPhotos.map((p) => (
             <div key={p.url} className="thumb">
               <img src={p.url} alt="Foto pacco" />
-              <button onClick={() => handleRemovePhoto(p.url)} className="small">✕</button>
+              <button onClick={() => handleRemovePhoto(p.url)} className="small">
+                ✕
+              </button>
             </div>
           ))}
         </div>

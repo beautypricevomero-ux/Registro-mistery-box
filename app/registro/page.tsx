@@ -3,23 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { blobToBase64 } from '@/lib/image';
-import {
-  buildSearchBlobFromCustomer,
-  getPhotoById,
-  getShipmentsWithCustomersByDate,
-  ShipmentWithCustomer
-} from '@/lib/db';
+import { getPhotoById, getShipmentsByDate, Shipment } from '@/lib/db';
 
 interface RegistryItem {
   id: string;
   createdAt: string;
-  customerName: string;
-  city?: string;
-  tracking?: string;
+  code: string;
   photoCount: number;
   photos: { id: string; url: string; mimeType: string }[];
   expanded: boolean;
-  data: ShipmentWithCustomer;
+  data: Shipment;
 }
 
 export default function RegistroPage() {
@@ -31,12 +24,7 @@ export default function RegistroPage() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
-
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [selectedDate, filter]);
 
   useEffect(() => {
     return () => {
@@ -45,18 +33,15 @@ export default function RegistroPage() {
   }, [items]);
 
   const loadData = async () => {
-    const shipments = await getShipmentsWithCustomersByDate(selectedDate);
+    const shipments = await getShipmentsByDate(selectedDate);
     const normalizedFilter = filter.trim().toLowerCase();
     const filtered = normalizedFilter
-      ? shipments.filter(({ shipment, customer }) => {
-          const blob = buildSearchBlobFromCustomer(customer, shipment.tracking);
-          return blob.includes(normalizedFilter);
-        })
+      ? shipments.filter((shipment) => shipment.code.toLowerCase().includes(normalizedFilter))
       : shipments;
     const list: RegistryItem[] = [];
-    for (const row of filtered) {
+    for (const shipment of filtered) {
       const photos = [] as { id: string; url: string; mimeType: string }[];
-      for (const pid of row.shipment.boxPhotoIds) {
+      for (const pid of shipment.boxPhotoIds) {
         const ph = await getPhotoById(pid);
         if (ph) {
           const url = URL.createObjectURL(ph.blob);
@@ -64,15 +49,13 @@ export default function RegistroPage() {
         }
       }
       list.push({
-        id: row.shipment.id,
-        createdAt: row.shipment.createdAt,
-        tracking: row.shipment.tracking,
-        customerName: row.customer.fullName,
-        city: row.customer.city,
+        id: shipment.id,
+        createdAt: shipment.createdAt,
+        code: shipment.code,
         photoCount: photos.length,
         photos,
         expanded: false,
-        data: row
+        data: shipment
       });
     }
     setItems(list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)));
@@ -85,9 +68,9 @@ export default function RegistroPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const shipments = await getShipmentsWithCustomersByDate(selectedDate);
+      const shipments = await getShipmentsByDate(selectedDate);
       const exportData: any = { date: selectedDate, shipments: [] as any[] };
-      for (const { shipment, customer } of shipments) {
+      for (const shipment of shipments) {
         const boxPhotos = [] as any[];
         for (const pid of shipment.boxPhotoIds) {
           const ph = await getPhotoById(pid);
@@ -95,20 +78,12 @@ export default function RegistroPage() {
             boxPhotos.push({ mimeType: ph.mimeType, base64: await blobToBase64(ph.blob) });
           }
         }
-        const labelImage = await getPhotoById(shipment.labelImageId);
+        const labelImage = shipment.labelImageId ? await getPhotoById(shipment.labelImageId) : undefined;
         exportData.shipments.push({
+          code: shipment.code,
           createdAt: shipment.createdAt,
-          tracking: shipment.tracking,
           layoutType: shipment.layoutType,
-          customer: {
-            fullName: customer.fullName,
-            address: customer.address,
-            cap: customer.cap,
-            city: customer.city,
-            province: customer.province,
-            phone: customer.phone,
-            ocrText: customer.ocrText
-          },
+          ocrText: shipment.ocrText,
           boxPhotos,
           labelImage: labelImage
             ? { mimeType: labelImage.mimeType, base64: await blobToBase64(labelImage.blob) }
@@ -149,7 +124,7 @@ export default function RegistroPage() {
             />
           </label>
           <label>
-            Filtra per nome, indirizzo, telefono o tracking
+            Filtra per codice
             <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} />
           </label>
           <button onClick={loadData}>Aggiorna elenco</button>
@@ -161,13 +136,11 @@ export default function RegistroPage() {
           <div className="card" key={item.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>Cliente: {item.customerName}</div>
+                <div style={{ fontWeight: 700 }}>Codice: {item.code}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Ora: {new Date(item.createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                 </div>
                 <div style={{ color: '#cbd5e1' }}>Foto pacco: {item.photoCount}</div>
-                {item.tracking && <div>Tracking: {item.tracking}</div>}
-                {item.city && <div>Città: {item.city}</div>}
               </div>
               <button style={{ width: 'auto', padding: '10px 16px' }} onClick={() => toggle(item.id)}>
                 Dettagli
