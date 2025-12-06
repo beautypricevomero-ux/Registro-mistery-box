@@ -1,10 +1,7 @@
 'use client';
 
-// @ts-ignore
-import { Buffer } from 'buffer';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { blobToBase64 } from '@/lib/image';
 import { getPhotoById, getPhotosByShipmentId, getShipmentsByDate, Photo, Shipment } from '@/lib/db';
 
 interface RegistryItem {
@@ -18,6 +15,22 @@ interface RegistryItem {
   data: Shipment;
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        resolve(result);
+      } else {
+        reject(new Error('Impossibile convertire il blob in base64'));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function RegistroPage() {
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,9 +38,6 @@ export default function RegistroPage() {
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).Buffer = (window as any).Buffer || Buffer;
-    }
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
@@ -128,10 +138,6 @@ export default function RegistroPage() {
     URL.revokeObjectURL(url);
   };
 
-  const blobToArrayBuffer = async (blob: Blob) => {
-    return blob.arrayBuffer();
-  };
-
   const handleExportExcelWithPhotos = async () => {
     if (filteredItems.length === 0) {
       alert('Non ci sono spedizioni da esportare.');
@@ -159,17 +165,31 @@ export default function RegistroPage() {
       row.height = 80;
 
       const photos = s.photos || [];
-      for (let index = 0; index < photos.length; index++) {
-        const photo = photos[index];
-        const arrayBuffer = await blobToArrayBuffer(photo.blob);
-        const imageId = workbook.addImage({
-          buffer: Buffer.from(arrayBuffer),
-          extension: 'jpeg'
-        });
+      let colOffset = 0;
+      for (const photo of photos) {
+        try {
+          const dataUrl = await blobToBase64(photo.blob);
+          const base64 = dataUrl.split(',')[1];
 
-        const colLetter = String.fromCharCode('C'.charCodeAt(0) + index);
-        const cellAddress = `${colLetter}${rowIndex}`;
-        worksheet.addImage(imageId, cellAddress);
+          const imageId = workbook.addImage({
+            base64,
+            extension: 'jpeg'
+          });
+
+          const colIndex = 3 + colOffset; // column C = 3
+          worksheet.addImage(
+            imageId,
+            {
+              tl: { col: colIndex - 1 + 0.1, row: rowIndex - 1 + 0.1 },
+              ext: { width: 70, height: 70 },
+              editAs: 'oneCell'
+            } as any
+          );
+
+          colOffset++;
+        } catch (err) {
+          console.error('Errore aggiungendo immagine a Excel', err);
+        }
       }
 
       row.commit();
