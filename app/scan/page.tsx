@@ -18,10 +18,18 @@ export default function ScanPage() {
     let active = true;
 
     const start = async () => {
+      const videoElement = videoRef.current;
+      if (!videoElement) {
+        setError(
+          'Per usare questa funzione devi abilitare la fotocamera nelle impostazioni dell’iPad.'
+        );
+        return;
+      }
+
       try {
         await codeReader.decodeFromVideoDevice(
           undefined,
-          videoRef.current,
+          videoElement,
           (result, err) => {
             if (!active) return;
             if (result) {
