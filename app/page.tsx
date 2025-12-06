@@ -11,11 +11,11 @@ export default function HomePage() {
           <p style={{ color: '#cbd5e1' }}>Operatività 100% offline su questo iPad</p>
         </div>
         <div className="nav-buttons">
-          <Link href="/scan" className="link-button">
+          <Link href="/ldv" className="link-button">
             <button>Nuova spedizione</button>
           </Link>
           <Link href="/search" className="link-button">
-            <button>Cerca per ID</button>
+            <button>Cerca</button>
           </Link>
           <Link href="/registro" className="link-button">
             <button>Registro del giorno</button>

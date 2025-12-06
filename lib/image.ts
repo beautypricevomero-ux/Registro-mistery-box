@@ -1,24 +1,17 @@
-export async function captureImageFromCamera(): Promise<Blob | null> {
-  // Uses an invisible input to leverage native camera UI on iPad
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.style.display = 'none';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (file) {
-        resolve(file);
-      } else {
-        resolve(null);
-      }
-    };
-    document.body.appendChild(input);
-    input.click();
-    // Cleanup after a short delay
-    setTimeout(() => input.remove(), 1000);
+export async function captureFrameFromVideo(video: HTMLVideoElement): Promise<Blob> {
+  if (!video.videoWidth || !video.videoHeight) {
+    throw new Error('Fotocamera non pronta');
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas non supportato');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob>((resolve) => {
+    canvas.toBlob((b) => resolve(b as Blob), 'image/jpeg', 0.9);
   });
+  return blob;
 }
 
 export async function compressImage(blob: Blob, maxSize = 1280, quality = 0.7): Promise<Blob> {

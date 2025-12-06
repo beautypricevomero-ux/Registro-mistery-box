@@ -3,15 +3,23 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { blobToBase64 } from '@/lib/image';
-import { buildSearchBlob, getPhotosByShipmentId, getShipmentsByDate } from '@/lib/db';
+import {
+  buildSearchBlobFromCustomer,
+  getPhotoById,
+  getShipmentsWithCustomersByDate,
+  ShipmentWithCustomer
+} from '@/lib/db';
 
 interface RegistryItem {
   id: string;
-  orderId: string;
   createdAt: string;
+  customerName: string;
+  city?: string;
+  tracking?: string;
   photoCount: number;
   photos: { id: string; url: string; mimeType: string }[];
   expanded: boolean;
+  data: ShipmentWithCustomer;
 }
 
 export default function RegistroPage() {
@@ -20,39 +28,55 @@ export default function RegistroPage() {
   const [items, setItems] = useState<RegistryItem[]>([]);
   const [exporting, setExporting] = useState(false);
 
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  useEffect(() => {
+    return () => {
+      items.forEach((item) => item.photos.forEach((p) => URL.revokeObjectURL(p.url)));
+    };
+  }, [items]);
+
   const loadData = async () => {
-    const shipments = await getShipmentsByDate(selectedDate);
+    const shipments = await getShipmentsWithCustomersByDate(selectedDate);
     const normalizedFilter = filter.trim().toLowerCase();
     const filtered = normalizedFilter
-      ? shipments.filter((s) => {
-          const blob = s.searchBlob || buildSearchBlob(s.orderId, s.ocrText, s.parsedFields);
+      ? shipments.filter(({ shipment, customer }) => {
+          const blob = buildSearchBlobFromCustomer(customer, shipment.tracking);
           return blob.includes(normalizedFilter);
         })
       : shipments;
     const list: RegistryItem[] = [];
-    for (const sh of filtered) {
-      const photos = await getPhotosByShipmentId(sh.id);
+    for (const row of filtered) {
+      const photos = [] as { id: string; url: string; mimeType: string }[];
+      for (const pid of row.shipment.boxPhotoIds) {
+        const ph = await getPhotoById(pid);
+        if (ph) {
+          const url = URL.createObjectURL(ph.blob);
+          photos.push({ id: pid, url, mimeType: ph.mimeType });
+        }
+      }
       list.push({
-        id: sh.id,
-        orderId: sh.orderId,
-        createdAt: sh.createdAt,
+        id: row.shipment.id,
+        createdAt: row.shipment.createdAt,
+        tracking: row.shipment.tracking,
+        customerName: row.customer.fullName,
+        city: row.customer.city,
         photoCount: photos.length,
-        photos: photos.map((p) => ({ id: p.id, url: URL.createObjectURL(p.blob), mimeType: p.mimeType })),
-        expanded: false
+        photos,
+        expanded: false,
+        data: row
       });
     }
     setItems(list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)));
   };
-
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, filter]);
 
   const toggle = (id: string) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, expanded: !item.expanded } : item)));
@@ -61,19 +85,34 @@ export default function RegistroPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const shipments = await getShipmentsByDate(selectedDate);
-      const exportData = { date: selectedDate, shipments: [] as any[] };
-      for (const sh of shipments) {
-        const photos = await getPhotosByShipmentId(sh.id);
-        const photoExports = [];
-        for (let i = 0; i < photos.length; i++) {
-          const base64 = await blobToBase64(photos[i].blob);
-          photoExports.push({ index: i, mimeType: photos[i].mimeType, base64 });
+      const shipments = await getShipmentsWithCustomersByDate(selectedDate);
+      const exportData: any = { date: selectedDate, shipments: [] as any[] };
+      for (const { shipment, customer } of shipments) {
+        const boxPhotos = [] as any[];
+        for (const pid of shipment.boxPhotoIds) {
+          const ph = await getPhotoById(pid);
+          if (ph) {
+            boxPhotos.push({ mimeType: ph.mimeType, base64: await blobToBase64(ph.blob) });
+          }
         }
+        const labelImage = await getPhotoById(shipment.labelImageId);
         exportData.shipments.push({
-          orderId: sh.orderId,
-          createdAt: sh.createdAt,
-          photos: photoExports
+          createdAt: shipment.createdAt,
+          tracking: shipment.tracking,
+          layoutType: shipment.layoutType,
+          customer: {
+            fullName: customer.fullName,
+            address: customer.address,
+            cap: customer.cap,
+            city: customer.city,
+            province: customer.province,
+            phone: customer.phone,
+            ocrText: customer.ocrText
+          },
+          boxPhotos,
+          labelImage: labelImage
+            ? { mimeType: labelImage.mimeType, base64: await blobToBase64(labelImage.blob) }
+            : undefined
         });
       }
       const filename = `registro-spedizioni-${selectedDate}.json`;
@@ -110,7 +149,7 @@ export default function RegistroPage() {
             />
           </label>
           <label>
-            Filtra per ID ordine (opzionale)
+            Filtra per nome, indirizzo, telefono o tracking
             <input className="input" value={filter} onChange={(e) => setFilter(e.target.value)} />
           </label>
           <button onClick={loadData}>Aggiorna elenco</button>
@@ -122,11 +161,13 @@ export default function RegistroPage() {
           <div className="card" key={item.id}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>ID ordine: {item.orderId}</div>
+                <div style={{ fontWeight: 700 }}>Cliente: {item.customerName}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Ora: {new Date(item.createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div style={{ color: '#cbd5e1' }}>Foto: {item.photoCount}</div>
+                <div style={{ color: '#cbd5e1' }}>Foto pacco: {item.photoCount}</div>
+                {item.tracking && <div>Tracking: {item.tracking}</div>}
+                {item.city && <div>Città: {item.city}</div>}
               </div>
               <button style={{ width: 'auto', padding: '10px 16px' }} onClick={() => toggle(item.id)}>
                 Dettagli

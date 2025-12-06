@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getPhotosByShipmentId, searchShipments } from '@/lib/db';
+import { buildSearchBlobFromCustomer, getAllShipmentsWithCustomers, getPhotoById } from '@/lib/db';
 
 interface ResultItem {
   shipmentId: string;
-  orderId: string;
   createdAt: string;
+  tracking?: string;
+  customerName: string;
+  customerAddress: string;
+  searchBlob: string;
   photos: { id: string; url: string }[];
 }
 
@@ -17,25 +20,46 @@ export default function SearchPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [modalUrl, setModalUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      results.forEach((r) => r.photos.forEach((p) => URL.revokeObjectURL(p.url)));
+    };
+  }, [results]);
+
   const handleSearch = async () => {
-    if (!query) return;
-    const shipments = await searchShipments(query.trim());
-    if (shipments.length === 0) {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const shipmentRows = await getAllShipmentsWithCustomers();
+    const filtered = shipmentRows.filter(({ shipment, customer }) => {
+      const blob = buildSearchBlobFromCustomer(customer, shipment.tracking);
+      return blob.includes(q);
+    });
+    if (filtered.length === 0) {
       setResults([]);
       setMessage('Nessuna spedizione trovata.');
       return;
     }
-    const aggregated: ResultItem[] = [];
-    for (const sh of shipments) {
-      const photos = await getPhotosByShipmentId(sh.id);
-      aggregated.push({
-        shipmentId: sh.id,
-        orderId: sh.orderId,
-        createdAt: sh.createdAt,
-        photos: photos.map((p) => ({ id: p.id, url: URL.createObjectURL(p.blob) }))
+    const enriched: ResultItem[] = [];
+    for (const { shipment, customer } of filtered) {
+      const photos: { id: string; url: string }[] = [];
+      for (const id of shipment.boxPhotoIds) {
+        const ph = await getPhotoById(id);
+        if (ph) {
+          const url = URL.createObjectURL(ph.blob);
+          photos.push({ id, url });
+        }
+      }
+      enriched.push({
+        shipmentId: shipment.id,
+        createdAt: shipment.createdAt,
+        tracking: shipment.tracking,
+        customerName: customer.fullName,
+        customerAddress: customer.address,
+        searchBlob: buildSearchBlobFromCustomer(customer, shipment.tracking),
+        photos
       });
     }
-    setResults(aggregated);
+    setResults(enriched);
     setMessage(null);
   };
 
@@ -51,7 +75,7 @@ export default function SearchPage() {
       <div className="card">
         <div className="grid" style={{ gap: 12 }}>
           <label>
-            Inserisci ID ordine (LDV)
+            Cerca per nome, indirizzo, CAP, telefono, tracking…
             <input
               className="input"
               value={query}
@@ -70,7 +94,8 @@ export default function SearchPage() {
           <div className="card" key={res.shipmentId}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>ID ordine: {res.orderId}</div>
+                <div style={{ fontWeight: 700 }}>Cliente: {res.customerName}</div>
+                <div>{res.customerAddress}</div>
                 <div style={{ color: '#cbd5e1' }}>
                   Data: {res.createdAt.slice(0, 10)} – Ora:{' '}
                   {new Date(res.createdAt).toLocaleTimeString('it-IT', {
@@ -78,6 +103,7 @@ export default function SearchPage() {
                     minute: '2-digit'
                   })}
                 </div>
+                {res.tracking && <div>Tracking: {res.tracking}</div>}
               </div>
             </div>
             <div className="thumb-grid" style={{ marginTop: 12 }}>
