@@ -31,7 +31,7 @@ async function decodeTracking(blob: Blob): Promise<string | undefined> {
     img.src = url;
     await img.decode();
     const reader = new BrowserMultiFormatReader();
-    const result = await reader.decodeFromImage(img);
+    const result = await reader.decodeFromImageElement(img);
     URL.revokeObjectURL(url);
     return result?.text;
   } catch (err) {
