@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Tesseract from 'tesseract.js';
-import { compressImage, captureFrameFromVideo, blobToBase64 } from '@/lib/image';
-import { parseLabelFields, LabelLayoutType } from '@/lib/layouts';
+import { compressImage, captureFrameFromVideo } from '@/lib/image';
+import { parseLabelFields } from '@/lib/layouts';
 import { saveLabelImage } from '@/lib/db';
+import { recognizeLabelText } from '@/lib/ocr';
 
-const PENDING_KEY = 'pendingCustomerDraft';
+const LAST_LDV_KEY = 'lastLdvData';
 
-type PendingCustomerDraft = {
+type LdvData = {
   fullName: string;
   address: string;
   cap?: string;
@@ -18,9 +18,10 @@ type PendingCustomerDraft = {
   phone?: string;
   notes?: string;
   ocrText: string;
-  layoutType?: LabelLayoutType;
+  layoutType?: string;
   trackingFromLabel?: string;
   labelImageId: string;
+  createdAt: string;
 };
 
 export default function LdvPage() {
@@ -63,25 +64,26 @@ export default function LdvPage() {
       const rawBlob = await captureFrameFromVideo(videoRef.current);
       const compressed = await compressImage(rawBlob);
       setMessage('Esecuzione OCR in corso...');
-      const base64 = await blobToBase64(compressed);
-      const ocrResult = await Tesseract.recognize(base64, 'ita');
-      const ocrText = ocrResult.data.text || '';
+      const ocrText = await recognizeLabelText(compressed);
       const parsed = parseLabelFields(ocrText);
       const labelImageId = await saveLabelImage(compressed);
-      const draft: PendingCustomerDraft = {
+      const ldvData: LdvData = {
         fullName: parsed.name || '',
         address: parsed.address || '',
-        cap: parsed.cap,
-        city: parsed.city,
-        province: parsed.province,
-        phone: parsed.phone,
+        cap: parsed.cap || '',
+        city: parsed.city || '',
+        province: parsed.province || '',
+        phone: parsed.phone || '',
         notes: '',
         ocrText,
-        layoutType: parsed.layoutType,
-        trackingFromLabel: parsed.tracking,
-        labelImageId
+        layoutType: parsed.layoutType || 'UNKNOWN',
+        trackingFromLabel: parsed.tracking || '',
+        labelImageId,
+        createdAt: new Date().toISOString()
       };
-      sessionStorage.setItem(PENDING_KEY, JSON.stringify(draft));
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LAST_LDV_KEY, JSON.stringify(ldvData));
+      }
       router.push('/cliente/nuovo');
     } catch (err) {
       console.error(err);

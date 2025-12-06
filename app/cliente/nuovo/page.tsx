@@ -2,19 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ParsedFields } from '@/lib/layouts';
+import { LabelLayoutType, ParsedFields } from '@/lib/layouts';
 import { createCustomerFromOcr } from '@/lib/db';
 
-const PENDING_KEY = 'pendingCustomerDraft';
+const LAST_LDV_KEY = 'lastLdvData';
 
-type PendingCustomerDraft = ParsedFields & {
-  ocrText: string;
+type StoredLdvData = {
+  fullName?: string;
+  address?: string;
+  cap?: string;
+  city?: string;
+  province?: string;
+  phone?: string;
+  notes?: string;
+  ocrText?: string;
+  layoutType?: string;
   trackingFromLabel?: string;
-  labelImageId: string;
+  labelImageId?: string;
 };
 
 export default function NuovoClientePage() {
-  const [draft, setDraft] = useState<PendingCustomerDraft | null>(null);
   const [fullName, setFullName] = useState('');
   const [address, setAddress] = useState('');
   const [cap, setCap] = useState('');
@@ -22,26 +29,46 @@ export default function NuovoClientePage() {
   const [province, setProvince] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [ocrText, setOcrText] = useState('');
+  const [layoutType, setLayoutType] = useState<string | null>(null);
+  const [labelImageId, setLabelImageId] = useState<string | null>(null);
+  const [trackingFromLabel, setTrackingFromLabel] = useState<string | null>(null);
+  const [loadingLdv, setLoadingLdv] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(PENDING_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as PendingCustomerDraft;
-      setDraft(parsed);
-      setFullName(parsed.name || '');
-      setAddress(parsed.address || '');
-      setCap(parsed.cap || '');
-      setCity(parsed.city || '');
-      setProvince(parsed.province || '');
-      setPhone(parsed.phone || '');
+    if (typeof window === 'undefined') return;
+
+    const raw = window.localStorage.getItem(LAST_LDV_KEY);
+    if (!raw) {
+      setLoadingLdv(false);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(raw) as StoredLdvData;
+      setFullName(data.fullName ?? '');
+      setAddress(data.address ?? '');
+      setCap(data.cap ?? '');
+      setCity(data.city ?? '');
+      setProvince(data.province ?? '');
+      setPhone(data.phone ?? '');
+      setNotes(data.notes ?? '');
+      setOcrText(data.ocrText ?? '');
+      setLayoutType(data.layoutType ?? null);
+      setLabelImageId(data.labelImageId ?? null);
+      setTrackingFromLabel(data.trackingFromLabel ?? null);
+    } catch (err) {
+      console.error('Errore nel parsing di lastLdvData', err);
+    } finally {
+      setLoadingLdv(false);
     }
   }, []);
 
   const handleConfirm = async () => {
-    if (!draft) {
+    if (!labelImageId) {
       setError('Nessun dato LDV trovato. Torna indietro e ripeti.');
       return;
     }
@@ -52,21 +79,23 @@ export default function NuovoClientePage() {
     setError(null);
     setSaving(true);
     try {
+      const parsedFields: ParsedFields = {
+        name: fullName,
+        address,
+        cap,
+        city,
+        province,
+        phone,
+        tracking: trackingFromLabel || undefined,
+        layoutType: (layoutType as LabelLayoutType) || undefined
+      };
       const customer = await createCustomerFromOcr(
-        {
-          ...draft,
-          name: fullName,
-          address,
-          cap,
-          city,
-          province,
-          phone
-        },
-        draft.ocrText,
+        parsedFields,
+        ocrText,
         notes
       );
-      sessionStorage.removeItem(PENDING_KEY);
-      const params = new URLSearchParams({ customerId: customer.id, labelImageId: draft.labelImageId });
+      window.localStorage.removeItem(LAST_LDV_KEY);
+      const params = new URLSearchParams({ customerId: customer.id, labelImageId });
       router.push(`/spedizione/nuova?${params.toString()}`);
     } catch (err) {
       console.error(err);
@@ -77,16 +106,15 @@ export default function NuovoClientePage() {
   };
 
   const handleCancel = () => {
-    sessionStorage.removeItem(PENDING_KEY);
+    window.localStorage.removeItem(LAST_LDV_KEY);
     router.push('/');
   };
 
-  if (!draft) {
+  if (loadingLdv) {
     return (
       <div className="page">
         <h1>Profilo cliente</h1>
-        <p>Dati LDV non trovati. Torna alla home e ripeti la scansione.</p>
-        <button onClick={() => router.push('/')}>Torna alla Home</button>
+        <p>Caricamento dati dalla LDV...</p>
       </div>
     );
   }
@@ -95,6 +123,12 @@ export default function NuovoClientePage() {
     <div className="page">
       <h1>Profilo cliente</h1>
       <p>Conferma o correggi i dati estratti dalla LDV.</p>
+      {!ocrText && (
+        <p style={{ color: 'red', marginBottom: '1rem' }}>
+          Nessun dato letto dalla LDV. Compila i campi manualmente oppure torna indietro e scatta di nuovo
+          l'etichetta.
+        </p>
+      )}
       {error && <div className="error-banner">{error}</div>}
       <div className="form-grid">
         <label>
@@ -132,6 +166,15 @@ export default function NuovoClientePage() {
         </button>
         <button className="secondary" onClick={handleCancel}>Annulla</button>
       </div>
+      {ocrText && (
+        <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid #ccc' }}>
+          <strong>Testo letto dalla LDV:</strong>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem' }}>{ocrText}</pre>
+          {layoutType && (
+            <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Layout rilevato: {layoutType}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
