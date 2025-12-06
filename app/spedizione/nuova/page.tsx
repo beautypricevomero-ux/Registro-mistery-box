@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { compressImage, captureFrameFromVideo } from '@/lib/image';
 import {
   createShipment,
@@ -10,9 +10,9 @@ import {
 } from '@/lib/db';
 
 export default function NuovaSpedizionePage() {
-  const params = useSearchParams();
-  const customerId = params.get('customerId');
-  const labelImageId = params.get('labelImageId');
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [labelImageId, setLabelImageId] = useState<string | null>(null);
+  const [isParamsLoaded, setIsParamsLoaded] = useState(false);
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -20,6 +20,18 @@ export default function NuovaSpedizionePage() {
   const [boxPhotos, setBoxPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const search = new URLSearchParams(window.location.search);
+    const cId = search.get('customerId');
+    const lId = search.get('labelImageId');
+
+    setCustomerId(cId);
+    setLabelImageId(lId);
+    setIsParamsLoaded(true);
+  }, []);
 
   useEffect(() => {
     if (!customerId) return;
@@ -104,6 +116,10 @@ export default function NuovaSpedizionePage() {
       setSaving(false);
     }
   };
+
+  if (!isParamsLoaded) {
+    return <div className="page">Caricamento parametri spedizione...</div>;
+  }
 
   if (!customerId || !labelImageId) {
     return (
