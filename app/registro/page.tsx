@@ -162,10 +162,12 @@ export default function RegistroPage() {
       row.getCell('orderId').value = s.orderId;
       row.getCell('createdAt').value = new Date(s.createdAt).toISOString();
 
+      // Ensure enough height for thumbnails
       row.height = 80;
 
       const photos = s.photos || [];
       let colOffset = 0;
+
       for (const photo of photos) {
         try {
           const dataUrl = await blobToBase64(photo.blob);
@@ -176,7 +178,8 @@ export default function RegistroPage() {
             extension: 'jpeg'
           });
 
-          const colIndex = 3 + colOffset; // column C = 3
+          // Place each photo in successive columns starting from C
+          const colIndex = 3 + colOffset; // zero-based internally
           worksheet.addImage(
             imageId,
             {
