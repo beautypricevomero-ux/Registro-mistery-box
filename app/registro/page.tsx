@@ -159,21 +159,17 @@ export default function RegistroPage() {
       row.height = 80;
 
       const photos = s.photos || [];
-      let imageRowTop = rowIndex;
-      for (const photo of photos) {
+      for (let index = 0; index < photos.length; index++) {
+        const photo = photos[index];
         const arrayBuffer = await blobToArrayBuffer(photo.blob);
         const imageId = workbook.addImage({
           buffer: Buffer.from(arrayBuffer),
           extension: 'jpeg'
         });
 
-        worksheet.addImage(imageId, {
-          tl: { col: 2, row: imageRowTop - 1 + 0.1 },
-          br: { col: 3, row: imageRowTop - 1 + 0.9 },
-          editAs: 'oneCell'
-        });
-
-        imageRowTop += 0.9;
+        const colLetter = String.fromCharCode('C'.charCodeAt(0) + index);
+        const cellAddress = `${colLetter}${rowIndex}`;
+        worksheet.addImage(imageId, cellAddress);
       }
 
       row.commit();
