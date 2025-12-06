@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Tesseract from 'tesseract.js';
-import { BrowserMultiFormatReader } from '@zxing/browser';
 import { compressImage, captureFrameFromVideo, blobToBase64 } from '@/lib/image';
-import { detectLabelLayout, parseLabelFields, LabelLayoutType } from '@/lib/layouts';
+import { parseLabelFields, LabelLayoutType } from '@/lib/layouts';
 import { saveLabelImage } from '@/lib/db';
 
 const PENDING_KEY = 'pendingCustomerDraft';
@@ -23,22 +22,6 @@ type PendingCustomerDraft = {
   trackingFromLabel?: string;
   labelImageId: string;
 };
-
-async function decodeTracking(blob: Blob): Promise<string | undefined> {
-  try {
-    const url = URL.createObjectURL(blob);
-    const img = document.createElement('img');
-    img.src = url;
-    await img.decode();
-    const reader = new BrowserMultiFormatReader();
-    const result = await reader.decodeFromImageElement(img);
-    URL.revokeObjectURL(url);
-    return result?.text;
-  } catch (err) {
-    console.warn('Nessun barcode decodificato', err);
-    return undefined;
-  }
-}
 
 export default function LdvPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -83,9 +66,7 @@ export default function LdvPage() {
       const base64 = await blobToBase64(compressed);
       const ocrResult = await Tesseract.recognize(base64, 'ita');
       const ocrText = ocrResult.data.text || '';
-      const layoutType = detectLabelLayout(ocrText);
       const parsed = parseLabelFields(ocrText);
-      const trackingFromLabel = (await decodeTracking(compressed)) || parsed.tracking;
       const labelImageId = await saveLabelImage(compressed);
       const draft: PendingCustomerDraft = {
         fullName: parsed.name || '',
@@ -96,8 +77,8 @@ export default function LdvPage() {
         phone: parsed.phone,
         notes: '',
         ocrText,
-        layoutType,
-        trackingFromLabel,
+        layoutType: parsed.layoutType,
+        trackingFromLabel: parsed.tracking,
         labelImageId
       };
       sessionStorage.setItem(PENDING_KEY, JSON.stringify(draft));
