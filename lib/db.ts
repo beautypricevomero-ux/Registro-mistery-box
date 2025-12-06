@@ -1,5 +1,4 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { v4 as uuidv4 } from 'uuid';
 
 export type Shipment = {
   id: string;
@@ -39,6 +38,14 @@ const DB_NAME = 'registroSpedizioniDB';
 const DB_VERSION = 1;
 let dbPromise: Promise<IDBPDatabase<RegistryDB>> | null = null;
 
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  // simple fallback
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+};
+
 export function initDB() {
   if (!dbPromise) {
     dbPromise = openDB<RegistryDB>(DB_NAME, DB_VERSION, {
@@ -57,14 +64,14 @@ export function initDB() {
 export async function saveShipmentWithPhotos(orderId: string, photoBlobs: Blob[]): Promise<string> {
   const db = await initDB();
   const tx = db.transaction(['shipments', 'photos'], 'readwrite');
-  const shipmentId = uuidv4();
+  const shipmentId = generateId();
   const createdAt = new Date().toISOString();
   const date = createdAt.slice(0, 10);
   const photoIds: string[] = [];
 
   try {
     for (const blob of photoBlobs) {
-      const id = uuidv4();
+      const id = generateId();
       const photo: Photo = {
         id,
         shipmentId,
