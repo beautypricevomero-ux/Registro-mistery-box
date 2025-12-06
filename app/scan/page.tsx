@@ -14,6 +14,7 @@ export default function ScanPage() {
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
     let stop = false;
+    let cleanup: (() => void) | undefined;
 
     async function startScan() {
       try {
@@ -37,7 +38,7 @@ export default function ScanPage() {
             }
           }
         );
-        return () => controls.stop();
+        cleanup = () => controls.stop();
       } catch (e) {
         console.error(e);
         setError(
@@ -49,7 +50,7 @@ export default function ScanPage() {
     startScan();
     return () => {
       stop = true;
-      reader.reset();
+      cleanup?.();
     };
   }, [router]);
 
