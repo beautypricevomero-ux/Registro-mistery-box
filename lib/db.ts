@@ -154,6 +154,20 @@ export async function getPhotoById(id: string): Promise<Photo | undefined> {
   return db.get('photos', id);
 }
 
+export async function getPhotosByShipmentId(shipmentId: string): Promise<Photo[]> {
+  const db = await initDB();
+  const shipment = await db.get('shipments', shipmentId);
+  if (!shipment) return [];
+  const results: Photo[] = [];
+  for (const pid of shipment.boxPhotoIds) {
+    const photo = await db.get('photos', pid);
+    if (photo && photo.kind === 'BOX') {
+      results.push(photo);
+    }
+  }
+  return results;
+}
+
 export async function clearAllData(): Promise<void> {
   const db = await initDB();
   const tx = db.transaction(['shipments', 'photos'], 'readwrite');

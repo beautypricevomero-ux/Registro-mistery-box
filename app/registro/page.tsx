@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { blobToBase64 } from '@/lib/image';
-import { getPhotoById, getShipmentsByDate, Shipment } from '@/lib/db';
+import { getPhotoById, getPhotosByShipmentId, getShipmentsByDate, Photo, Shipment } from '@/lib/db';
 
 interface RegistryItem {
   id: string;
@@ -37,14 +37,12 @@ export default function RegistroPage() {
     const shipments = await getShipmentsByDate(selectedDate);
     const list: RegistryItem[] = [];
     for (const shipment of shipments) {
-      const photos = [] as { id: string; url: string; mimeType: string }[];
-      for (const pid of shipment.boxPhotoIds) {
-        const ph = await getPhotoById(pid);
-        if (ph) {
-          const url = URL.createObjectURL(ph.blob);
-          photos.push({ id: pid, url, mimeType: ph.mimeType });
-        }
-      }
+      const rawPhotos: Photo[] = await getPhotosByShipmentId(shipment.id);
+      const photos = rawPhotos.map((ph) => ({
+        id: ph.id,
+        url: URL.createObjectURL(ph.blob),
+        mimeType: ph.mimeType
+      }));
       list.push({
         id: shipment.id,
         createdAt: shipment.createdAt,
@@ -183,7 +181,27 @@ export default function RegistroPage() {
                     {new Date(item.createdAt).toLocaleString()}
                   </td>
                   <td style={{ borderBottom: '1px solid #333', padding: '0.5rem' }}>
-                    {item.photoCount ?? 0} foto
+                    {item.photos.length === 0 ? (
+                      <span>Nessuna foto</span>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {item.photos.map((photo) => (
+                          <a
+                            key={photo.id}
+                            href={photo.url}
+                            download={`pacco-${item.orderId}-${photo.id}.jpg`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <img
+                              src={photo.url}
+                              alt="Foto pacco"
+                              style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))

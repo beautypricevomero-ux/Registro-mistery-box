@@ -53,11 +53,11 @@ export default function RifBartoliniPage() {
       if (!ctx) throw new Error('Canvas non supportato');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Definisci un ROI centrale per isolare il RIF verticale
-      const roiWidth = Math.round(canvas.width * 0.3);
-      const roiHeight = Math.round(canvas.height * 0.8);
-      const roiX = Math.round((canvas.width - roiWidth) / 2);
-      const roiY = Math.round((canvas.height - roiHeight) / 2);
+      // ROI allineato al riquadro visibile: 20% ai lati, 10% sopra/sotto
+      const roiX = canvas.width * 0.2;
+      const roiWidth = canvas.width * 0.6;
+      const roiY = canvas.height * 0.1;
+      const roiHeight = canvas.height * 0.8;
 
       const roiCanvas = document.createElement('canvas');
       roiCanvas.width = roiWidth;
@@ -99,10 +99,31 @@ export default function RifBartoliniPage() {
   return (
     <div className="page">
       <h1>Scatta RIF Bartolini</h1>
-      <p>Inquadra solo il codice RIF da vicino, poi premi "Scatta RIF".</p>
+      <p>Inquadra il codice RIF al centro del riquadro, poi premi "Scatta RIF".</p>
       {error && <div className="error-banner">{error}</div>}
-      <div className="camera-box">
-        <video ref={videoRef} playsInline muted style={{ width: '100%', borderRadius: 12, background: '#111' }} />
+      <div
+        className="camera-wrapper"
+        style={{ position: 'relative', width: '100%', maxWidth: '600px', margin: '0 auto' }}
+      >
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          style={{ width: '100%', borderRadius: 12, background: '#111' }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            border: '3px solid #00BFFF',
+            borderRadius: '8px',
+            left: '20%',
+            right: '20%',
+            top: '10%',
+            bottom: '10%',
+            pointerEvents: 'none',
+            boxShadow: '0 0 15px rgba(0,0,0,0.6) inset'
+          }}
+        />
       </div>
       <div style={{ marginTop: 12 }}>
         <button onClick={handleCaptureRif} disabled={processing} className="primary">
