@@ -88,10 +88,13 @@ export function parseLabelFields(ocrText: string): ParsedFields {
         }
       }
     }
-    const rifLine = lines.find((l) => /rif\.?/i.test(l));
-    if (rifLine) {
-      const match = rifLine.match(/rif\.?\s*:?\s*(.+)/i);
-      if (match) parsed.tracking = match[1].trim();
+    const flatText = ocrText.replace(/\n/g, ' ');
+    const rifMatch = flatText.match(/ri[fF][\.\:\s]*([0-9\s]{8,})/i);
+    if (rifMatch && rifMatch[1]) {
+      const onlyDigits = rifMatch[1].replace(/\D/g, '');
+      if (onlyDigits.length >= 6) {
+        parsed.tracking = onlyDigits;
+      }
     }
     parsed.cap = parsed.cap || findCap(ocrText);
     parsed.phone = parsed.phone || findPhone(ocrText);
@@ -130,6 +133,12 @@ export function parseLabelFields(ocrText: string): ParsedFields {
     if (trackingCandidate) {
       parsed.tracking = trackingCandidate;
     }
+    if (!parsed.tracking) {
+      const codeMatch = ocrText.match(/\b[A-Z0-9]{8,}\b/);
+      if (codeMatch) {
+        parsed.tracking = codeMatch[0];
+      }
+    }
     parsed.cap = parsed.cap || findCap(ocrText);
     parsed.phone = parsed.phone || findPhone(ocrText);
     return parsed;
@@ -150,6 +159,12 @@ export function parseLabelFields(ocrText: string): ParsedFields {
       .slice(-4)
       .find((l) => /^\s*[A-Z]{2}\s?\d{3,}/.test(l) || /gls/i.test(l));
     if (trackingLine) parsed.tracking = trackingLine.trim();
+    if (!parsed.tracking) {
+      const codeMatch = ocrText.match(/\b[A-Z0-9]{8,}\b/);
+      if (codeMatch) {
+        parsed.tracking = codeMatch[0];
+      }
+    }
     parsed.cap = parsed.cap || findCap(ocrText);
     parsed.phone = parsed.phone || findPhone(ocrText);
     return parsed;
