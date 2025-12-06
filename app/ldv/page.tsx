@@ -6,6 +6,7 @@ import { compressImage, captureFrameFromVideo } from '@/lib/image';
 import { parseLabelFields } from '@/lib/layouts';
 import { saveLabelImage } from '@/lib/db';
 import { recognizeLabelText } from '@/lib/ocr';
+import { detectTrackingCode } from '@/lib/tracking';
 
 const LAST_LDV_KEY = 'lastLdvData';
 
@@ -63,6 +64,12 @@ export default function LdvPage() {
     try {
       const rawBlob = await captureFrameFromVideo(videoRef.current);
       const compressed = await compressImage(rawBlob);
+      setMessage('Rilevamento codice...');
+      const tracking = await detectTrackingCode(compressed);
+      if (!tracking) {
+        alert('Non sono riuscito a leggere nessun codice. Avvicina meglio il codice a barre o il RIF e riprova.');
+        return;
+      }
       setMessage('Esecuzione OCR in corso...');
       const ocrText = await recognizeLabelText(compressed);
       const parsed = parseLabelFields(ocrText);
@@ -77,7 +84,7 @@ export default function LdvPage() {
         notes: '',
         ocrText,
         layoutType: parsed.layoutType || 'UNKNOWN',
-        trackingFromLabel: parsed.tracking || '',
+        trackingFromLabel: tracking,
         labelImageId,
         createdAt: new Date().toISOString()
       };

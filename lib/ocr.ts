@@ -9,3 +9,19 @@ export async function recognizeLabelText(blob: Blob, language = 'ita'): Promise<
   const result = await Tesseract.recognize(base64, language);
   return result.data.text || '';
 }
+
+/**
+ * Recognize only digits from an image blob (used for BeautyPrice RIF fallback).
+ */
+export async function recognizeDigitsOnly(blob: Blob): Promise<string> {
+  const imageUrl = URL.createObjectURL(blob);
+  try {
+    const { data } = await Tesseract.recognize(imageUrl, 'eng', {
+      tessedit_char_whitelist: '0123456789',
+      tessedit_pageseg_mode: 7 // single line
+    } as any);
+    return (data.text || '').replace(/\D/g, '');
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
